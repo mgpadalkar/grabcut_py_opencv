@@ -23,6 +23,7 @@ class ROI(object):
     # (x, y) coordinates and indicate that cropping is being performed
     if event == cv2.EVENT_LBUTTONDOWN:
       self.ref_point = [(x, y)]
+      self.image = self.clone.copy()
     # check to see if the left mouse button was released
     elif event == cv2.EVENT_LBUTTONUP:
       # record the ending (x, y) coordinates and indicate that
@@ -37,11 +38,11 @@ class ROI(object):
     y1 = pt[0][1]; y2 = pt[-1][1]
     width = x2 - x1
     height = y2 - y1
-    rect = [x1, y1, width, height]
+    rect = (x1, y1, width, height)
     return rect
 
 
-  def get_crop(self, ):
+  def get_mask(self, ):
     cv2.namedWindow(self.name, cv2.WINDOW_NORMAL)
     cv2.setMouseCallback(self.name, self.draw_rect)
     while True:
@@ -62,7 +63,7 @@ if __name__ == '__main__':
   args = get_args()
   image = cv2.imread(args.image)
   roi = ROI(image)
-  pts = roi.get_crop()
+  pts = roi.get_mask()
   print('selected rect: ')
   print(pts)
 
