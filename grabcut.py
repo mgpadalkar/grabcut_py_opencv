@@ -34,27 +34,30 @@ def process(img, roi_type, scale=1.):
   if roi_type == 'rect':
     # get roi
     roi = ROI(img.copy())
-    rect = roi.get_mask()
+    rect, success = roi.get_mask()
     mask = np.zeros(img.shape[:2],np.uint8)
-    # apply algo
-    cv2.grabCut(img, mask, rect, bgdModel, fgdModel, 5, cv2.GC_INIT_WITH_RECT)
+    if success:
+      cv2.grabCut(img, mask, rect, bgdModel, fgdModel, 5, cv2.GC_INIT_WITH_RECT)
   else:
     roi = FGBG(img.copy())
-    mask = roi.get_mask()
-    cv2.grabCut(img, mask, None, bgdModel, fgdModel, 5, cv2.GC_INIT_WITH_MASK)
-  # get output
-  mask2 = np.where((mask==1)|(mask==3),255,0).astype('uint8')
+    mask, success = roi.get_mask()
+    if success:
+      cv2.grabCut(img, mask, None, bgdModel, fgdModel, 5, cv2.GC_INIT_WITH_MASK)
+  # resize back
   if scale != 1.:
-    mask2 = cv2.resize(mask2, (w, h), cv2.INTER_NEAREST)
-  return mask2
+    mask = cv2.resize(mask, (w, h), cv2.INTER_NEAREST)
+  # set output
+  mask = np.where((mask==1)|(mask==3),255,0).astype(np.uint8)
+  return (mask, success)
+
   
 def imshow(name, img):
   cv2.namedWindow(name, cv2.WINDOW_NORMAL)
   cv2.imshow(name, img)
 
 def main(img, roi_type, scale, output):
-  mask = process(img.copy(), roi_type, scale)
-  op   = mask_overlay(img, mask)
+  mask, success = process(img.copy(), roi_type, scale)
+  op            = mask_overlay(img, mask)
   if output is None or output == '':
     imshow('input', img)
     imshow('output', op)

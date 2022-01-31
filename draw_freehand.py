@@ -66,7 +66,8 @@ class FGBG(object):
     bg_lines = [l[0] for l in self.lines if l[1]=='bg']
     self.draw_on_image(mask, bg_lines, cv2.GC_BGD)
     self.draw_on_image(mask, fg_lines, cv2.GC_FGD)
-    return mask
+    success = True if len(lines) > 0 else False
+    return (mask, success)
 
   def get_mask(self, ):
     cv2.namedWindow(self.name, cv2.WINDOW_NORMAL)
@@ -84,6 +85,7 @@ class FGBG(object):
       # press 'r' to reset the window
       if key == ord('r'):
         self.image = self.clone.copy()
+        self.lines = []
         print('Removing all markings')
       # 'u' to undo last
       if key == ord('u'):
@@ -101,5 +103,9 @@ if __name__ == '__main__':
   args = get_args()
   image = cv2.imread(args.image)
   obj   = FGBG(image)
-  mask  = obj.get_mask()
-  cv2.imwrite('mask.png', mask*127)
+  mask, success  = obj.get_mask()
+  if success:
+    mask_FGD = np.where((mask==1)|(mask==3), 255, 0).astype(np.uint8)
+    mask_BGD = np.where((mask==0)|(mask==2), 255, 0).astype(np.uint8)
+    cv2.imwrite('mask_FGD.png', mask_FGD)
+    cv2.imwrite('mask_BGD.png', mask_BGD)

@@ -34,12 +34,17 @@ class ROI(object):
       cv2.imshow(self.name, self.image)
 
   def points_to_rect(self, pt):
-    x1 = pt[0][0]; x2 = pt[-1][0]
-    y1 = pt[0][1]; y2 = pt[-1][1]
-    width = x2 - x1
-    height = y2 - y1
-    rect = (x1, y1, width, height)
-    return rect
+    if len(pt) > 1:
+      x1 = pt[0][0]; x2 = pt[-1][0]
+      y1 = pt[0][1]; y2 = pt[-1][1]
+      width = x2 - x1
+      height = y2 - y1
+      rect = (x1, y1, width, height)
+      success = True
+    else:
+      rect = (0, 0, self.image.shape[:-1], self.image.shape[-2])
+      success = False
+    return (rect, success)
 
 
   def get_mask(self, ):
@@ -63,8 +68,9 @@ if __name__ == '__main__':
   args = get_args()
   image = cv2.imread(args.image)
   roi = ROI(image)
-  pts = roi.get_mask()
-  print('selected rect: ')
-  print(pts)
+  rect, success = roi.get_mask()
+  if success:
+    print('selected rect: ')
+    print(rect)
 
 
