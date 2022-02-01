@@ -98,7 +98,6 @@ class SegmentGC(object):
     bgdmodel = np.zeros((1,65),np.float64)
     fgdmodel = np.zeros((1,65),np.float64)
     if self.is_rect and len(self.rect) > 0:
-      print(self.rect)
       cv2.grabCut(self.clone, self.mask, self.rect, bgdmodel, fgdmodel, 1, cv2.GC_INIT_WITH_RECT)
     elif not self.is_rect:
       cv2.grabCut(self.clone, self.mask, self.rect, bgdmodel, fgdmodel, 1, cv2.GC_INIT_WITH_MASK)
