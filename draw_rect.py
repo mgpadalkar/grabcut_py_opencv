@@ -17,29 +17,35 @@ class ROI(object):
     self.clone = image.copy()
     self.name  = name
     self.ref_point = []
+    self.recording = False
 
   def draw_rect(self, event, x, y, flags, param):
     # if the left mouse button was clicked, record the starting
     # (x, y) coordinates and indicate that cropping is being performed
     if event == cv2.EVENT_LBUTTONDOWN:
+      self.recording = True
       self.ref_point = [(x, y)]
       self.image = self.clone.copy()
+    # for mouse movement
+    elif event == cv2.EVENT_MOUSEMOVE and self.recording:
+      self.image = self.clone.copy()
+      cv2.rectangle(self.image, self.ref_point[0], (x, y), (0, 255, 0), 2)
+      
     # check to see if the left mouse button was released
-    elif event == cv2.EVENT_LBUTTONUP:
+    elif event == cv2.EVENT_LBUTTONUP and self.recording:
+      self.recording = False
       # record the ending (x, y) coordinates and indicate that
       # the cropping operation is finished
       self.ref_point.append((x, y))
       # draw a rectangle around the region of interest
       cv2.rectangle(self.image, self.ref_point[0], self.ref_point[1], (0, 255, 0), 2)
-      cv2.imshow(self.name, self.image)
+      # cv2.imshow(self.name, self.image)
 
   def points_to_rect(self, pt):
     if len(pt) > 1:
       x1 = pt[0][0]; x2 = pt[-1][0]
       y1 = pt[0][1]; y2 = pt[-1][1]
-      width = x2 - x1
-      height = y2 - y1
-      rect = (x1, y1, width, height)
+      rect = (min(x1, x2), min(y1, y2), abs(x2-x1), abs(y2-y1))
       success = True
     else:
       rect = (0, 0, self.image.shape[:-1], self.image.shape[-2])
