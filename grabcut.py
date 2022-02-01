@@ -16,56 +16,86 @@ def get_args():
   args = ap.parse_args()
   return args
 
+def rect_mask(to_process, to_show, mask, repeat_op=False):
+  cv2.destroyAllWindows()
+  bgdModel = np.zeros((1,65), np.float64)
+  fgdModel = np.zeros((1,65), np.float64)
+  if not repeat_op:
+    roi = ROI(to_show.copy(), name='RECTANGLE: press \'r\' to reset, \'c\' to confirm')
+    rect, success = roi.get_mask()
+  if repeat_op or success:
+    cv2.grabCut(to_process, mask, rect, bgdModel, fgdModel, 5, cv2.GC_INIT_WITH_RECT)
+  return
+
+def freehand_mask(to_process, to_show, mask, repeat_op=False):
+  cv2.destroyAllWindows()
+  bgdModel = np.zeros((1,65), np.float64)
+  fgdModel = np.zeros((1,65), np.float64)
+  if not repeat_op:
+    roi = FGBG(to_show.copy(), name='FREEHAND: press \'r\' to reset, \'c\' to confirm \'b\' for BG, \'f\' for FG, \'u\' for undo')
+    fmask, success = roi.get_mask()
+    if success:
+      mask[fmask == cv2.GC_BGD] = cv2.GC_BGD
+      mask[fmask == cv2.GC_FGD] = cv2.GC_FGD
+    if repeat_op or success:
+      cv2.grabCut(to_process, mask, None, bgdModel, fgdModel, 5, cv2.GC_INIT_WITH_MASK)
+  return
+
+def final(mask):
+  out = np.where((mask==1)+(mask==3), 255, 0).astype(np.uint8)
+  return out
+
+def process(img):
+  clone = img.copy()
+  mask  = np.zeros(img.shape[:2], np.uint8) + cv2.GC_PR_BGD 
+  prev  = None
+  window_title = 'Satisfied?: \'r\': rect, \'f\': freehand, \'c\': continue previous \'Esc\': quit'
+  cv2.namedWindow(window_title, cv2.WINDOW_NORMAL)
+  while(1):
+    output = mask_overlay(img, final(mask))
+    cv2.imshow(window_title, output)
+    k = cv2.waitKey(1)
+    if k != 27 and k != ord('r') and k != ord('f') and k != ord('c'):
+      continue
+    elif k == 27:
+      break
+    elif k == ord('r'):
+      rect_mask(clone, output, mask)
+      prev = rect_mask
+    elif k == ord('f'):
+      freehand_mask(clone, output, mask)
+      prev = freehand_mask  
+    elif k == ord('c') and prev is not None:
+      prev(clone, output, mask, repeat_op=True)
+  cv2.destroyAllWindows()
+  return final(mask)
+
+
+def main(img, scale):
+  h, w = img.shape[:2]
+  if scale != 1:
+    sh, sw = int(scale*h), int(scale*w)
+    print('Processing at size ({}, {})'.format(sw, sh))
+    input = cv2.resize(img, (sw, sh))
+    mask  = process(input)
+    mask  = cv2.resize(mask, (w, h), cv2.INTER_NEAREST)
+  else:
+    mask  = process(img)
+  return mask
+
+
 def mask_overlay(img, mask, color=(0, 255, 0)):
+  out = img.copy()
   color = np.array(color, dtype=np.float32)
   vals = img[mask>0].astype(np.float32)*0.5 + color*0.5
-  img[mask>0] = vals.astype(np.uint8)
-  return img
+  out[mask>0] = vals.astype(np.uint8)
+  return out
 
-def process(img, roi_type, scale=1.):
-  h, w = img.shape[:2]
-  if scale != 1.0:
-    sh, sw = int(h*scale), int(w*scale)
-    img = cv2.resize(img, (sw, sh), cv2.INTER_CUBIC)
-    print('Processing at size ({}, {})'.format(sw, sh))
-  # init
-  bgdModel = np.zeros((1,65),np.float64)
-  fgdModel = np.zeros((1,65),np.float64)
-  if roi_type == 'rect':
-    # get roi
-    roi = ROI(img.copy())
-    rect, success = roi.get_mask()
-    mask = np.zeros(img.shape[:2],np.uint8)
-    if success:
-      cv2.grabCut(img, mask, rect, bgdModel, fgdModel, 5, cv2.GC_INIT_WITH_RECT)
-  else:
-    roi = FGBG(img.copy())
-    mask, success = roi.get_mask()
-    if success:
-      cv2.grabCut(img, mask, None, bgdModel, fgdModel, 5, cv2.GC_INIT_WITH_MASK)
-  # resize back
-  if scale != 1.:
-    mask = cv2.resize(mask, (w, h), cv2.INTER_NEAREST)
-  # set output
-  mask = np.where((mask==1)|(mask==3),255,0).astype(np.uint8)
-  return (mask, success)
 
-  
 def imshow(name, img):
   cv2.namedWindow(name, cv2.WINDOW_NORMAL)
   cv2.imshow(name, img)
 
-def main(img, roi_type, scale, output):
-  mask, success = process(img.copy(), roi_type, scale)
-  op            = mask_overlay(img, mask)
-  if output is None or output == '':
-    imshow('input', img)
-    imshow('output', op)
-    cv2.waitKey(0)
-  else:
-    cv2.imwrite(output, mask)
-    cv2.imwrite(output+'_seg.png', op)
-    print('Output saved to \'{}\''.format(output))
 
 if __name__=='__main__':
   args = get_args()
@@ -73,5 +103,14 @@ if __name__=='__main__':
   if img is None:
     print('Unable to load image \'{}\'. Quitting.'.format(args.image))
     exit()
-  main(img, args.roi, args.scale, args.output)
+  mask = main(img, args.scale)
+  op   = mask_overlay(img, mask)
+  if args.output is None or args.output == '':
+    imshow('input', img)
+    imshow('output', op)
+    cv2.waitKey(0)
+  else:
+    cv2.imwrite(args.output, mask)
+    cv2.imwrite(args.output+'_seg.png', op)
+    print('Output saved to \'{}\''.format(args.output))
 
